@@ -9,7 +9,7 @@ FEX			:= fex
 SOURCES		:= src
 INCLUDES	:= src
 
-BUILD_APP=$(NES_EMU)/apu_state.o $(NES_EMU)/Blip_Buffer.o $(NES_EMU)/Effects_Buffer.o \
+BUILD_APP=$(NES_EMU)/abstract_file.o $(NES_EMU)/apu_state.o $(NES_EMU)/Blip_Buffer.o $(NES_EMU)/Effects_Buffer.o \
 	$(NES_EMU)/Mapper_Fme7.o $(NES_EMU)/Mapper_Mmc5.o $(NES_EMU)/Mapper_Namco106.o \
 	$(NES_EMU)/Mapper_Vrc6.o $(NES_EMU)/misc_mappers.o $(NES_EMU)/Multi_Buffer.o $(NES_EMU)/Nes_Apu.o \
 	$(NES_EMU)/Nes_Buffer.o $(NES_EMU)/Nes_Cart.o $(NES_EMU)/Nes_Core.o $(NES_EMU)/Nes_Cpu.o \
