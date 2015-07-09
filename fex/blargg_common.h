@@ -7,6 +7,26 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+
+#ifndef _ASSERT_H
+#define _ASSERT_H
+#ifdef NDEBUG
+# define assert(EX)
+#else
+# define assert(EX) (void)((EX) || (_Assert (#EX, __FILE__, __LINE__),0))
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern void _Assert (const char *msg, const char *file, int line);
+
+#ifdef __cplusplus
+ };
+#endif
+#endif
+
 #include <limits.h>
 
 typedef const char* blargg_err_t; // 0 on success, otherwise error string
@@ -168,20 +188,20 @@ class blargg_vector : public blargg_vector_ {
 public:
 	blargg_vector()         { init(); }
 	~blargg_vector()        { clear(); }
-	
+
 	blargg_err_t resize( size_t n ) { return resize_( n, sizeof (T) ); }
-	
+
 	      T* begin()       { return static_cast<T*> (begin_); }
 	const T* begin() const { return static_cast<T*> (begin_); }
-	
+
 	      T* end()         { return static_cast<T*> (begin_) + size_; }
 	const T* end()   const { return static_cast<T*> (begin_) + size_; }
-	
+
 	T& operator [] ( size_t n )
 	{
 		return static_cast<T*> (begin_) [n];
 	}
-	
+
 	const T& operator [] ( size_t n ) const
 	{
 		return static_cast<T*> (begin_) [n];

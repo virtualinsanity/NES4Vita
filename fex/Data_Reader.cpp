@@ -4,6 +4,8 @@
 
 #include "blargg_endian.h"
 #include <stdio.h>
+#include <psp2/types.h>
+#include <psp2/io/fcntl.h>
 
 /* Copyright (C) 2005-2009 Shay Green. This module is free software; you
 can redistribute it and/or modify it under the terms of the GNU Lesser
@@ -24,17 +26,17 @@ blargg_err_t Data_Reader::read( void* p, int n )
 {
 	if ( n < 0 )
 		return blargg_err_caller;
-	
+
 	if ( n <= 0 )
 		return blargg_ok;
-	
+
 	if ( n > remain() )
 		return blargg_err_file_eof;
-	
+
 	blargg_err_t err = read_v( p, n );
 	if ( !err )
 		remain_ -= n;
-	
+
 	return err;
 }
 
@@ -42,20 +44,20 @@ blargg_err_t Data_Reader::read_avail( void* p, int* n_ )
 {
 	int n = min( (BOOST::uint64_t)(*n_), remain() );
 	*n_ = 0;
-	
+
 	if ( n < 0 )
 		return blargg_err_caller;
-	
+
 	if ( n <= 0 )
 		return blargg_ok;
-	
+
 	blargg_err_t err = read_v( p, n );
 	if ( !err )
 	{
 		remain_ -= n;
 		*n_ = n;
 	}
-	
+
 	return err;
 }
 
@@ -83,17 +85,17 @@ blargg_err_t Data_Reader::skip( int n )
 {
 	if ( n < 0 )
 		return blargg_err_caller;
-	
+
 	if ( n <= 0 )
 		return blargg_ok;
-	
+
 	if ( n > remain() )
 		return blargg_err_file_eof;
-	
+
 	blargg_err_t err = skip_v( n );
 	if ( !err )
 		remain_ -= n;
-	
+
 	return err;
 }
 
@@ -104,17 +106,17 @@ blargg_err_t File_Reader::seek( BOOST::uint64_t n )
 {
 	if ( n < 0 )
 		return blargg_err_caller;
-	
+
 	if ( n == tell() )
 		return blargg_ok;
-	
+
 	if ( n > size() )
 		return blargg_err_file_eof;
-	
+
 	blargg_err_t err = seek_v( n );
 	if ( !err )
 		set_tell( n );
-	
+
 	return err;
 }
 
@@ -145,7 +147,7 @@ Remaining_Reader::Remaining_Reader( void const* h, int size, Data_Reader* r ) :
 {
 	header        = h;
 	header_remain = size;
-	
+
 	set_remain( size + r->remain() );
 }
 
@@ -158,7 +160,7 @@ blargg_err_t Remaining_Reader::read_v( void* out, int count )
 		header = STATIC_CAST(char const*, header) + first;
 		header_remain -= first;
 	}
-	
+
 	return in->read( STATIC_CAST(char*, out) + first, count - first );
 }
 
@@ -238,7 +240,7 @@ size_t utf8_char_len_from_header( char p_c )
 size_t utf8_decode_char( const char *p_utf8, unsigned & wide, size_t mmax )
 {
 	const BOOST::uint8_t * utf8 = ( const BOOST::uint8_t* )p_utf8;
-	
+
 	if ( mmax == 0 )
 	{
 		wide = 0;
@@ -395,7 +397,7 @@ char* blargg_to_utf8( const blargg_wchar_t* wpath )
 {
 	if ( wpath == NULL )
 		return NULL;
-	
+
 	size_t needed = 0;
     size_t mmax = blargg_wcslen( wpath );
 	if ( mmax <= 0 )
@@ -412,7 +414,7 @@ char* blargg_to_utf8( const blargg_wchar_t* wpath )
 	}
 	if ( needed <= 0 )
 		return NULL;
-	
+
 	char* path = (char*) calloc( needed + 1, 1 );
 	if ( path == NULL )
 		return NULL;
@@ -433,7 +435,7 @@ char* blargg_to_utf8( const blargg_wchar_t* wpath )
 		free( path );
 		return NULL;
 	}
-	
+
 	return path;
 }
 
@@ -442,7 +444,7 @@ blargg_wchar_t* blargg_to_wide( const char* path )
 {
 	if ( path == NULL )
 		return NULL;
-	
+
 	size_t mmax = strlen( path );
 	if ( mmax <= 0 )
 		return NULL;
@@ -459,7 +461,7 @@ blargg_wchar_t* blargg_to_wide( const char* path )
 	}
 	if ( needed <= 0 )
 		return NULL;
-	
+
     blargg_wchar_t* wpath = (blargg_wchar_t*) calloc( needed + 1, sizeof *wpath );
 	if ( wpath == NULL )
 		return NULL;
@@ -479,13 +481,14 @@ blargg_wchar_t* blargg_to_wide( const char* path )
 		free( wpath );
 		return NULL;
 	}
-	
+
 	return wpath;
 }
 
-static inline FILE* blargg_fopen( const char path [], const char mode [] )
+static inline SceUID blargg_fopen( const char path [], const char mode [] )
 {
-	return fopen( path, mode );
+	return sceIoOpen( path, PSP2_O_RDONLY, 0777);
+	//return fopen( path, mode );
 }
 
 // Std_File_Reader
@@ -500,50 +503,48 @@ Std_File_Reader::~Std_File_Reader()
 	close();
 }
 
-static blargg_err_t blargg_fopen( FILE** out, const char path [] )
+static blargg_err_t blargg_fopen( SceUID* out, const char path [] )
 {
 	*out = blargg_fopen( path, "rb" );
 	if ( !*out )
 	{
 		return blargg_err_file_read;
 	}
-	
+
 	return blargg_ok;
 }
 
-static blargg_err_t blargg_fsize( FILE* f, long* out )
+static blargg_err_t blargg_fsize( SceUID f, long* out )
 {
-	if ( fseek( f, 0, SEEK_END ) )
-		return blargg_err_file_io;
-	
-	*out = ftell( f );
+	*out = sceIoLseek(f,0,PSP2_SEEK_END);
+
 	if ( *out < 0 )
 		return blargg_err_file_io;
-	
-	if ( fseek( f, 0, SEEK_SET ) )
+
+	if ( sceIoLseek(f,0,PSP2_SEEK_SET) < 0 )
 		return blargg_err_file_io;
-	
+
 	return blargg_ok;
 }
 
 blargg_err_t Std_File_Reader::open( const char path [] )
 {
 	close();
-	
-	FILE* f;
+
+	SceUID f;
 	RETURN_ERR( blargg_fopen( &f, path ) );
-	
+
 	long s;
 	blargg_err_t err = blargg_fsize( f, &s );
 	if ( err )
 	{
-		fclose( f );
+		sceIoClose( f );
 		return err;
 	}
-	
-	file_ = f;
+
+	file_ = &f;
 	set_size( s );
-	
+
 	return blargg_ok;
 }
 
@@ -555,27 +556,30 @@ void Std_File_Reader::make_unbuffered()
 
 blargg_err_t Std_File_Reader::read_v( void* p, int s )
 {
-	if ( (size_t) s != fread( p, 1, s, STATIC_CAST(FILE*, file_) ) )
+	SceUID f = *(SceUID *) (file_);
+	//if ( (size_t) s != fread( p, 1, s, STATIC_CAST(FILE*, file_) ) )
+	if ( (size_t) s != sceIoRead(f,p,s) )
 	{
 		// Data_Reader's wrapper should prevent EOF
-		check( !feof( STATIC_CAST(FILE*, file_) ) );
-		
+		//TODO check( !feof( STATIC_CAST(FILE*, file_) ) );
+
 		return blargg_err_file_io;
 	}
-	
+
 	return blargg_ok;
 }
 
 blargg_err_t Std_File_Reader::seek_v( BOOST::uint64_t n )
 {
-    if ( fseeko( STATIC_CAST(FILE*, file_), n, SEEK_SET ) )
+		SceUID f = *(SceUID *) (file_);
+    if (  sceIoLseek(f,n,PSP2_SEEK_SET) < 0 )
 	{
 		// Data_Reader's wrapper should prevent EOF
 		check( !feof( STATIC_CAST(FILE*, file_) ) );
-		
+
 		return blargg_err_file_io;
 	}
-	
+
 	return blargg_ok;
 }
 
@@ -583,7 +587,8 @@ void Std_File_Reader::close()
 {
 	if ( file_ )
 	{
-		fclose( STATIC_CAST(FILE*, file_) );
+		SceUID f = *(SceUID *) (file_);
+		sceIoClose(f);
 		file_ = NULL;
 	}
 }
