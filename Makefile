@@ -17,7 +17,7 @@ BUILD_APP=$(NES_EMU)/abstract_file.o $(NES_EMU)/apu_state.o $(NES_EMU)/Blip_Buff
 	$(NES_EMU)/Nes_Fme7_Apu.o $(NES_EMU)/Nes_Mapper.o $(NES_EMU)/nes_mappers.o $(NES_EMU)/Nes_Mmc1.o \
 	$(NES_EMU)/Nes_Mmc3.o $(NES_EMU)/Nes_Namco_Apu.o $(NES_EMU)/Nes_Oscs.o $(NES_EMU)/Nes_Ppu.o \
 	$(NES_EMU)/Nes_Ppu_Impl.o $(NES_EMU)/Nes_Ppu_Rendering.o $(NES_EMU)/nes_util.o $(NES_EMU)/Nes_Vrc6_Apu.o \
-	$(FEX)/Data_Reader.o
+	$(FEX)/Data_Reader.o $(FEX)/blargg_errors.o
 
 CFILES   := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.c))
 CXXFILES := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.cpp))

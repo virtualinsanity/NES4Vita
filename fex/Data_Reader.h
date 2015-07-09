@@ -33,7 +33,7 @@ public:
 
 	// Reads and discards n bytes. Skipping past end of file results in blargg_err_file_eof.
 	blargg_err_t skip( int n );
-	
+
 	virtual ~Data_Reader() { }
 
 private:
@@ -44,14 +44,14 @@ private:
 // Derived interface
 protected:
 	Data_Reader()                                   : remain_( 0 ) { }
-	
+
 	// Sets remain
-	void set_remain( BOOST::uint64_t n );
-	
+	void set_remain( BOOST::uint64_t n ) { assert( n >= 0 ); remain_ = n; };
+
 	// Do same as read(). Guaranteed that 0 < n <= remain(). Value of remain() is updated
 	// AFTER this call succeeds, not before. set_remain() should NOT be called from this.
 	virtual blargg_err_t read_v( void*, int n )     BLARGG_PURE( { (void)n; return blargg_ok; } )
-	
+
 	// Do same as skip(). Guaranteed that 0 < n <= remain(). Default just reads data
 	// and discards it. Value of remain() is updated AFTER this call succeeds, not
 	// before. set_remain() should NOT be called from this.
@@ -60,7 +60,7 @@ protected:
 // Implementation
 public:
 	BLARGG_DISABLE_NOTHROW
-	
+
 private:
 	BOOST::uint64_t remain_;
 };
@@ -85,23 +85,23 @@ protected:
 	void set_size( BOOST::uint64_t n )              { size_ = n; Data_Reader::set_remain( n ); }
 	void set_size( int n )             { set_size( STATIC_CAST(BOOST::uint64_t, n) ); }
 	void set_size( long n )             { set_size( STATIC_CAST(BOOST::uint64_t, n) ); }
-	
+
 	// Sets reported position
-	void set_tell( BOOST::uint64_t i );
-	
+	void set_tell( int i )              { assert( 0 <= i && i <= size_ ); Data_Reader::set_remain( size_ - i ); }
+
 	// Do same as seek(). Guaranteed that 0 <= n <= size().  Value of tell() is updated
 	// AFTER this call succeeds, not before. set_* functions should NOT be called from this.
 	virtual blargg_err_t seek_v( BOOST::uint64_t n ) BLARGG_PURE( { (void)n; return blargg_ok; } )
-	
+
 // Implementation
 protected:
 	File_Reader()                       : size_( 0 ) { }
-	
+
 	virtual blargg_err_t skip_v( BOOST::uint64_t );
 
 private:
 	BOOST::uint64_t size_;
-	
+
 	void set_remain(); // avoid accidental use of set_remain
 };
 
@@ -112,7 +112,7 @@ public:
 
 	// Opens file
 	blargg_err_t open( const char path [] );
-	
+
 	// Closes file if one was open
 	void close();
 
@@ -124,7 +124,7 @@ public:
 public:
 	Std_File_Reader();
 	virtual ~Std_File_Reader();
-	
+
 protected:
 	virtual blargg_err_t read_v( void*, int );
 	virtual blargg_err_t seek_v( BOOST::uint64_t );
@@ -196,7 +196,7 @@ class Callback_Reader : public Data_Reader {
 public:
 	typedef callback_reader_func_t callback_t;
 	Callback_Reader( callback_t, BOOST::uint64_t size, void* user_data );
-	
+
 // Implementation
 protected:
 	virtual blargg_err_t read_v( void*, int );
@@ -220,7 +220,7 @@ class Callback_File_Reader : public File_Reader {
 public:
 	typedef callback_file_reader_func_t callback_t;
 	Callback_File_Reader( callback_t, BOOST::uint64_t size, void* user_data );
-	
+
 // Implementation
 protected:
 	virtual blargg_err_t read_v( void*, int );
@@ -240,7 +240,7 @@ public:
 
 	// Opens possibly gzipped file
 	blargg_err_t open( const char path [] );
-	
+
 	// Closes file if one was open
 	void close();
 
@@ -248,11 +248,11 @@ public:
 public:
 	Gzip_File_Reader();
 	~Gzip_File_Reader();
-	
+
 protected:
 	virtual blargg_err_t read_v( void*, int );
 	virtual blargg_err_t seek_v( int );
-	
+
 private:
 	// void* so "zlib.h" doesn't have to be included here
 	void* file_;
