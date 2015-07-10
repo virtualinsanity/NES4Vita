@@ -29,7 +29,7 @@ Nes_File_Writer::Nes_File_Writer()
 Nes_File_Writer::~Nes_File_Writer()
 {
 }
-	
+
 blargg_err_t Nes_File_Writer::begin( Auto_File_Writer dw, nes_tag_t tag )
 {
 	require( !out );
@@ -99,7 +99,7 @@ Nes_File_Reader::Nes_File_Reader()
 Nes_File_Reader::~Nes_File_Reader()
 {
 }
-	
+
 blargg_err_t Nes_File_Reader::read_block_data( void* p, long s )
 {
 	long extra = remain();
@@ -150,7 +150,7 @@ blargg_err_t Nes_File_Reader::next_block()
 		case group_end:
 			require( false );
 			return "Tried to go past end of blocks";
-		
+
 		case group_begin: {
 			int d = 1;
 			do
@@ -165,11 +165,11 @@ blargg_err_t Nes_File_Reader::next_block()
 			while ( d > 0);
 			break;
 		}
-		
+
 		case data_block:
 			RETURN_ERR( skip( h.size ) );
 			break;
-		
+
 		case invalid:
 			break;
 	}
@@ -199,7 +199,7 @@ blargg_err_t Nes_File_Reader::exit_group()
 		RETURN_ERR( skip( h.size ) );
 		RETURN_ERR( read_header() );
 	}
-	
+
 	block_type_ = invalid; // cause next_block() to read past end block
 	depth_--;
 	return 0;

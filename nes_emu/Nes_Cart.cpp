@@ -19,7 +19,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 
 #include "blargg_source.h"
 
-//char const Nes_Cart::not_ines_file [] = "Not an iNES file";
+char const Nes_Cart::not_ines_file [] = "Not an iNES file";
 
 Nes_Cart::Nes_Cart()
 {
@@ -37,10 +37,10 @@ void Nes_Cart::clear()
 {
 	free( prg_ );
 	prg_ = NULL;
-	
+
 	free( chr_ );
 	chr_ = NULL;
-	
+
 	prg_size_ = 0;
 	chr_size_ = 0;
 	mapper = 0;
@@ -79,7 +79,7 @@ blargg_err_t Nes_Cart::resize_chr( long size )
 }
 
 // iNES reading
-/*
+
 struct ines_header_t {
 	BOOST::uint8_t signature [4];
 	BOOST::uint8_t prg_count; // number of 16K PRG banks
@@ -93,30 +93,30 @@ BOOST_STATIC_ASSERT( sizeof (ines_header_t) == 16 );
 blargg_err_t Nes_Cart::load_ines( Auto_File_Reader in )
 {
 	RETURN_ERR( in.open() );
-	
+
 	ines_header_t h;
 	RETURN_ERR( in->read( &h, sizeof h ) );
-	
+
 	if ( 0 != memcmp( h.signature, "NES\x1A", 4 ) )
 		return not_ines_file;
-	
+
 	if ( h.zero [7] ) // handle header defaced by a fucking idiot's handle
 		h.flags2 = 0;
-	
+
 	set_mapper( h.flags, h.flags2 );
-	
+
 	if ( h.flags & 0x04 ) // skip trainer
 		RETURN_ERR( in->skip( 512 ) );
-	
+
 	RETURN_ERR( resize_prg( h.prg_count * 16 * 1024L ) );
 	RETURN_ERR( resize_chr( h.chr_count * 8 * 1024L ) );
-	
+
 	RETURN_ERR( in->read( prg(), prg_size() ) );
 	RETURN_ERR( in->read( chr(), chr_size() ) );
-	
+
 	return 0;
 }
-*/
+
 // IPS patching
 
 // IPS patch file format (integers are big-endian):
@@ -147,7 +147,7 @@ static blargg_err_t apply_ips_patch( Data_Reader& patch, byte** file, long* file
 	RETURN_ERR( patch.read( signature, sizeof signature ) );
 	if ( memcmp( signature, "PATCH", sizeof signature ) )
 		return "Not an IPS patch file";
-	
+
 	while ( patch.remain() )
 	{
 		// read offset
@@ -156,11 +156,11 @@ static blargg_err_t apply_ips_patch( Data_Reader& patch, byte** file, long* file
 		long offset = buf [0] * 0x10000 + buf [1] * 0x100 + buf [2];
 		if ( offset == 0x454F46 ) // 'EOF'
 			break;
-		
+
 		// read size
 		RETURN_ERR( patch.read( buf, 2 ) );
 		long size = buf [0] * 0x100 + buf [1];
-		
+
 		// size = 0 signals a run of identical bytes
 		int fill = -1;
 		if ( size == 0 )
@@ -169,7 +169,7 @@ static blargg_err_t apply_ips_patch( Data_Reader& patch, byte** file, long* file
 			size = buf [0] * 0x100 + buf [1];
 			fill = buf [2];
 		}
-		
+
 		// expand file if new data is at exact end of file
 		if ( offset == *file_size )
 		{
@@ -178,19 +178,19 @@ static blargg_err_t apply_ips_patch( Data_Reader& patch, byte** file, long* file
 			CHECK_ALLOC( p );
 			*file = (byte*) p;
 		}
-		
+
 		//dprintf( "Patch offset: 0x%04X, size: 0x%04X\n", (int) offset, (int) size );
-		
+
 		if ( offset < 0 || *file_size < offset + size )
 			return "IPS tried to patch past end of file";
-		
+
 		// read/fill data
 		if ( fill < 0 )
 			RETURN_ERR( patch.read( *file + offset, size ) );
 		else
 			memset( *file + offset, fill, size );
 	}
-	
+
 	return 0;
 }
 
@@ -198,26 +198,26 @@ blargg_err_t Nes_Cart::load_patched_ines( Auto_File_Reader in, Auto_File_Reader 
 {
 	RETURN_ERR( in.open() );
 	RETURN_ERR( patch.open() );
-	
+
 	// read file into memory
 	long size = in->remain();
 	byte* ines = (byte*) malloc( size );
 	CHECK_ALLOC( ines );
 	const char* err = in->read( ines, size );
-	
+
 	// apply patch
 	if ( !err )
 		err = apply_ips_patch( *patch, &ines, &size );
-	
+
 	// load patched file
 	if ( !err )
 	{
 		Mem_File_Reader patched( ines, size );
 		err = load_ines( patched );
 	}
-	
+
 	free( ines );
-	
+
 	return err;
 }
 

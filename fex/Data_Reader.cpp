@@ -3,7 +3,9 @@
 #include "Data_Reader.h"
 
 #include "blargg_endian.h"
+#include "blargg_errors.h"
 #include <stdio.h>
+#include <string.h>
 #include <psp2/types.h>
 #include <psp2/io/fcntl.h>
 
@@ -542,7 +544,7 @@ blargg_err_t Std_File_Reader::open( const char path [] )
 		return err;
 	}
 
-	file_ = &f;
+	file_ = (void *)f;
 	set_size( s );
 
 	return blargg_ok;
@@ -556,22 +558,22 @@ void Std_File_Reader::make_unbuffered()
 
 blargg_err_t Std_File_Reader::read_v( void* p, int s )
 {
-	SceUID f = *(SceUID *) (file_);
+	SceUID f = (SceUID) (file_);
 	//if ( (size_t) s != fread( p, 1, s, STATIC_CAST(FILE*, file_) ) )
-	if ( (size_t) s != sceIoRead(f,p,s) )
+	int ret = sceIoRead(f,p,s);
+	if ( (size_t) s != ret )
 	{
 		// Data_Reader's wrapper should prevent EOF
 		//TODO check( !feof( STATIC_CAST(FILE*, file_) ) );
 
 		return blargg_err_file_io;
 	}
-
 	return blargg_ok;
 }
 
 blargg_err_t Std_File_Reader::seek_v( BOOST::uint64_t n )
 {
-		SceUID f = *(SceUID *) (file_);
+		SceUID f = (SceUID) (file_);
     if (  sceIoLseek(f,n,PSP2_SEEK_SET) < 0 )
 	{
 		// Data_Reader's wrapper should prevent EOF
@@ -587,7 +589,7 @@ void Std_File_Reader::close()
 {
 	if ( file_ )
 	{
-		SceUID f = *(SceUID *) (file_);
+		SceUID f = (SceUID) (file_);
 		sceIoClose(f);
 		file_ = NULL;
 	}

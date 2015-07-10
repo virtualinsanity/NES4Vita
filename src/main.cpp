@@ -11,11 +11,16 @@
 #include <psp2/gxm.h>
 #include <psp2/types.h>
 #include <psp2/moduleinfo.h>
+#include <psp2/kernel/processmgr.h>
 
 #include "../nes_emu/Nes_Emu.h"
+#include "abstract_file.h"
 #include <vita2d.h>
 
 PSP2_MODULE_INFO(0, 0, "NES4Vita");
+
+#define SCREEN_W 960
+#define SCREEN_H 544
 
 const SceSize sceUserMainThreadStackSize = 8*1024*1024;
 
@@ -59,60 +64,85 @@ unsigned update_input(SceCtrlData *pad)
    for (unsigned p = 0; p < 2; p++)
       for (unsigned bind = 0; bind < sizeof(bindmap) / sizeof(bindmap[0]); bind++)
          res |= keys_down & bindmap[bind].psp2 ? bindmap[bind].nes : 0;
-	 
+
    return res;
 }
 
-int run_emu(char *path)
+int run_emu(const char *path)
 {
-  SceCtrlData pad;
-  unsigned int joypad1, joypad2;
+	SceCtrlData pad;
+	unsigned int joypad1, joypad2;
 
-  joypad1 = joypad2 = update_input(&pad);
+	emu->set_sample_rate(44100);
+	emu->set_equalizer(Nes_Emu::nes_eq);
+	emu->set_palette_range(0);
 
-  emu->emulate_frame(joypad1, joypad2);
-  const Nes_Emu::frame_t &frame = emu->frame();
+	vita2d_texture *tex = vita2d_create_empty_texture(Nes_Emu::image_width, Nes_Emu::image_height);
+	void *tex_data = vita2d_texture_get_datap(tex);
 
-  static uint32_t video_buffer[Nes_Emu::image_width * Nes_Emu::image_height];
+	static uint32_t video_buffer[Nes_Emu::image_width * Nes_Emu::image_height];
+	emu->set_pixels(video_buffer, Nes_Emu::image_width);
 
-  const uint8_t *in_pixels = frame.pixels;
-  uint32_t *out_pixels = video_buffer;
+	Auto_File_Reader freader(path);
+	emu->load_ines(freader);
 
-  for (unsigned h = 0; h < Nes_Emu::image_height;
-        h++, in_pixels += frame.pitch, out_pixels += Nes_Emu::image_width)
-  {
-	  for (unsigned w = 0; w < Nes_Emu::image_width; w++)
-      {
-         unsigned col = frame.palette[in_pixels[w]];
-         const Nes_Emu::rgb_t& rgb = emu->nes_colors[col];
-         unsigned r = rgb.red;
-         unsigned g = rgb.green;
-         unsigned b = rgb.blue;
-         out_pixels[w] = (r << 16) | (g << 8) | (b << 0);
-      }
-  }
-  
-  vita2d_start_drawing();
-  vita2d_clear_screen();
-  vita2d_end_drawing();
-  vita2d_swap_buffers();
-  
-  return 0;
+	int scale = 2;
+	int pos_x = SCREEN_W/2 - (Nes_Emu::image_width/2)*scale;
+	int pos_y = SCREEN_H/2 - (Nes_Emu::image_height/2)*scale;
+
+	while (1) {
+		sceCtrlPeekBufferPositive(0, &pad, 1);
+		if (pad.buttons & (PSP2_CTRL_START & PSP2_CTRL_SELECT)) break;
+
+		joypad1 = joypad2 = update_input(&pad);
+
+		emu->emulate_frame(joypad1, joypad2);
+		const Nes_Emu::frame_t &frame = emu->frame();
+
+		const uint8_t *in_pixels = frame.pixels;
+		uint32_t *out_pixels = (uint32_t *)tex_data;
+
+		for (unsigned h = 0; h < Nes_Emu::image_height;
+			h++, in_pixels += frame.pitch, out_pixels += Nes_Emu::image_width) {
+			for (unsigned w = 0; w < Nes_Emu::image_width; w++) {
+				unsigned col = frame.palette[in_pixels[w]];
+				const Nes_Emu::rgb_t& rgb = emu->nes_colors[col];
+				unsigned r = rgb.red;
+				unsigned g = rgb.green;
+				unsigned b = rgb.blue;
+				out_pixels[w] = 0xFF000000 | (r << 0) | (g << 8) | (b << 16);
+			}
+		}
+
+		vita2d_start_drawing();
+		vita2d_clear_screen();
+
+		vita2d_draw_texture_scale(tex, pos_x, pos_y, scale, scale);
+
+		vita2d_end_drawing();
+		vita2d_swap_buffers();
+	}
+
+	return 0;
 }
 
 int main()
 {
 	printf("Starting NES4Vita by SMOKE");
-	
+
 	vita2d_init();
 	printf("vita2d initialized");
-	
-	char *path = (char*)malloc(sizeof(char) * (strlen("cache0:/VitaDefilerClient/Documents/rom.nes")));
-	sprintf(path, "cache0:/VitaDefilerClient/Documents/rom.nes");
-	
-	printf("Loading emulator.... %s",path);
+
+	emu = new Nes_Emu();
+
+	const char *path = "cache0:/VitaDefilerClient/Documents/rom.nes";
+
+	printf("Loading emulator.... %s", path);
 	run_emu(path);
 
+	delete emu;
+
 	vita2d_fini();
+	sceKernelExitProcess(0);
 	return 0;
 }

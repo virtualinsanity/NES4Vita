@@ -18,10 +18,10 @@ class Nes_State_Writer : public Nes_File_Writer {
 public:
 	// Begin writing file
 	blargg_err_t begin( Auto_File_Writer );
-	
+
 	// Write emulator's current state to file and end
 	blargg_err_t end( Nes_Emu const& );
-	
+
 	// Write state to file and end
 	blargg_err_t end( Nes_State const& );
 };
@@ -29,16 +29,16 @@ public:
 // Reads state from a file
 class Nes_State_Reader : public Nes_File_Reader {
 public:
-	
+
 	// Begin reading state snapshot from file
 	blargg_err_t begin( Auto_File_Reader, Nes_State* = 0 );
-	
+
 	// Go to next unrecognized block in file
 	blargg_err_t next_block();
-	
+
 	// State as read from file. Only valid after all blocks have been read.
 	Nes_State const& state() const;
-	
+
 public:
 	Nes_State_Reader();
 	~Nes_State_Reader();
@@ -49,11 +49,11 @@ private:
 
 class Nes_State_ {
 public:
-	
+
 	blargg_err_t write_blocks( Nes_File_Writer& ) const;
 	void set_nes_state( nes_state_t const& );
 	blargg_err_t read_blocks( Nes_File_Reader& );
-	
+
 	enum { ram_size = 0x800 };
 	enum { sram_max = 0x2000 };
 	enum { spr_ram_size = 0x100 };
@@ -66,17 +66,17 @@ public:
 	apu_state_t*            apu;
 	ppu_state_t*            ppu;
 	mapper_state_t*         mapper;
-	
+
 	bool nes_valid, cpu_valid, joypad_valid, apu_valid, ppu_valid;
 	bool mapper_valid, ram_valid, spr_ram_valid;
 	short sram_size, nametable_size, chr_size;
-	
+
 	// Invalidate all state
 	void clear();
-	
+
 	// Change timestamp
 	void set_timestamp( frame_count_t );
-	
+
 	// Timestamp snapshot was taken at
 	frame_count_t timestamp() const;
 };
@@ -84,21 +84,21 @@ public:
 // Snapshot of emulator state
 class Nes_State : private Nes_State_ {
 public:
-	
+
 	Nes_State();
-	
+
 #if 0 // What is this?
 	Nes_State_::set_timestamp;
 	Nes_State_::timestamp;
 	Nes_State_::clear;
 #endif
-	
+
 	// Write snapshot to file
 	blargg_err_t write( Auto_File_Writer ) const;
-	
+
 	// Read snapshot from file
 	blargg_err_t read( Auto_File_Reader );
-	
+
 private:
 	Nes_Cpu::registers_t    cpu;
 	joypad_state_t          joypad;
@@ -110,7 +110,7 @@ private:
 	BOOST::uint8_t spr_ram [spr_ram_size];
 	BOOST::uint8_t nametable [nametable_max];
 	BOOST::uint8_t chr [chr_max];
-	
+
 	friend class Nes_Emu;
 	friend class Nes_State_Writer;
 	friend class Nes_State_Reader;
@@ -125,6 +125,7 @@ int mem_differs( void const* in, int compare, unsigned long count );
 
 inline Nes_State const& Nes_State_Reader::state() const
 {
+	assert( depth() == 0 && block_type() == group_end );
 	return *state_;
 }
 
@@ -138,4 +139,3 @@ inline void Nes_State_::set_timestamp( frame_count_t t ) { nes.frame_count = t; 
 inline frame_count_t Nes_State_::timestamp() const { return nes.frame_count; }
 
 #endif
-

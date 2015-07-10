@@ -4,7 +4,7 @@
 #include "Nes_Emu.h"
 
 #include <string.h>
-#include <stdio.h>
+#include "Nes_State.h"
 #include "Nes_Mapper.h"
 
 /* Copyright (C) 2004-2006 Shay Green. This module is free software; you
@@ -92,22 +92,31 @@ blargg_err_t Nes_Emu::set_cart( Nes_Cart const* new_cart )
 	close();
 	RETURN_ERR( auto_init() );
 	RETURN_ERR( emu.open( new_cart ) );
-	
+
 	channel_count_ = Nes_Apu::osc_count + emu.mapper->channel_count();
 	RETURN_ERR( sound_buf->set_channel_count( channel_count() ) );
 	set_equalizer( equalizer_ );
 	enable_sound( true );
-	
-	//reset();
-	
+
+	reset();
+
 	return 0;
+}
+
+void Nes_Emu::reset( bool full_reset, bool erase_battery_ram )
+{
+	require( cart() );
+
+	clear_sound_buf();
+	set_timestamp( 0 );
+	emu.reset( full_reset, erase_battery_ram );
 }
 
 void Nes_Emu::set_palette_range( int begin, int end )
 {
 	require( (unsigned) end <= 0x100 );
 	// round up to alignment
-	emu.ppu.palette_begin = (begin + palette_alignment - 1) & ~(palette_alignment - 1); 
+	emu.ppu.palette_begin = (begin + palette_alignment - 1) & ~(palette_alignment - 1);
 	host_palette_size = end - emu.ppu.palette_begin;
 	require( host_palette_size >= palette_alignment );
 }
@@ -116,9 +125,9 @@ blargg_err_t Nes_Emu::emulate_frame( int joypad1, int joypad2 )
 {
 	emu.current_joypad [0] = (joypad1 |= ~0xFF);
 	emu.current_joypad [1] = (joypad2 |= ~0xFF);
-	
+
 	emu.ppu.host_pixels = NULL;
-	
+
 	unsigned changed_count = sound_buf->channels_changed_count();
 	bool new_enabled = (frame_ != NULL);
 	if ( sound_buf_changed_count != changed_count || sound_enabled != new_enabled )
@@ -127,7 +136,7 @@ blargg_err_t Nes_Emu::emulate_frame( int joypad1, int joypad2 )
 		sound_enabled = new_enabled;
 		enable_sound( sound_enabled );
 	}
-	
+
 	frame_t* f = frame_;
 	if ( f )
 	{
@@ -141,13 +150,13 @@ blargg_err_t Nes_Emu::emulate_frame( int joypad1, int joypad2 )
 		if ( host_pixels )
 			emu.ppu.host_pixels = (BOOST::uint8_t*) host_pixels +
 					emu.ppu.host_row_bytes * f->top;
-		
+
 		if ( sound_buf->samples_avail() )
 			clear_sound_buf();
-		
+
 		nes_time_t frame_len = emu.emulate_frame();
 		sound_buf->end_frame( frame_len, false );
-		
+
 		f = frame_;
 		f->sample_count      = sound_buf->samples_avail();
 		f->chan_count        = sound_buf->samples_per_frame();
@@ -163,11 +172,64 @@ blargg_err_t Nes_Emu::emulate_frame( int joypad1, int joypad2 )
 		emu.ppu.max_palette_size = 0;
 		emu.emulate_frame();
 	}
-	
+
 	return 0;
 }
 
 // Extras
+
+blargg_err_t Nes_Emu::load_ines( Auto_File_Reader in )
+{
+	close();
+	RETURN_ERR( private_cart.load_ines( in ) );
+	return set_cart( &private_cart );
+}
+
+blargg_err_t Nes_Emu::save_battery_ram( Auto_File_Writer out )
+{
+	RETURN_ERR( out.open() );
+	return out->write( emu.impl->sram, emu.impl->sram_size );
+}
+
+blargg_err_t Nes_Emu::load_battery_ram( Auto_File_Reader in )
+{
+	RETURN_ERR( in.open() );
+	emu.sram_present = true;
+	return in->read( emu.impl->sram, emu.impl->sram_size );
+}
+
+void Nes_Emu::load_state( Nes_State_ const& in )
+{
+	clear_sound_buf();
+	emu.load_state( in );
+}
+
+void Nes_Emu::load_state( Nes_State const& in )
+{
+	loading_state( in );
+	load_state( STATIC_CAST(Nes_State_ const&,in) );
+}
+
+blargg_err_t Nes_Emu::load_state( Auto_File_Reader in )
+{
+	Nes_State* state = BLARGG_NEW Nes_State;
+	CHECK_ALLOC( state );
+	blargg_err_t err = state->read( in );
+	if ( !err )
+		load_state( *state );
+	delete state;
+	return err;
+}
+
+blargg_err_t Nes_Emu::save_state( Auto_File_Writer out ) const
+{
+	Nes_State* state = BLARGG_NEW Nes_State;
+	CHECK_ALLOC( state );
+	save_state( state );
+	blargg_err_t err = state->write( out );
+	delete state;
+	return err;
+}
 
 void Nes_Emu::write_chr( void const* p, long count, long offset )
 {
@@ -263,11 +325,11 @@ void Nes_Emu::fade_samples( blip_sample_t* p, int size, int step )
 	{
 		if ( step < 0 )
 			p += size - sound_fade_size;
-		
+
 		int const shift = 15;
 		int mul = (1 - step) << (shift - 1);
 		step *= (1 << shift) / sound_fade_size;
-		
+
 		for ( int n = sound_fade_size; n--; )
 		{
 			*p = (*p * mul) >> 15;
@@ -286,7 +348,7 @@ long Nes_Emu::read_samples( short* out, long out_size )
 		fade_sound_in = false;
 		fade_samples( out, count, 1 );
 	}
-	
+
 	if ( fade_sound_out )
 	{
 		fade_sound_out = false;
@@ -315,7 +377,7 @@ Nes_Emu::rgb_t const Nes_Emu::nes_colors [color_table_size] =
 	{251,195,254},{254,197,235},{254,205,198},{247,217,166},
 	{229,230,149},{208,240,151},{190,245,171},{180,243,205},
 	{181,236,243},{184,184,184},{  0,  0,  0},{  0,  0,  0},
-	
+
 	{114, 83, 79},{  0, 23,113},{ 32,  0,145},{ 71,  0,141},
 	{104,  0,103},{122,  0, 41},{120,  0,  0},{ 99, 10,  0},
 	{ 64, 34,  0},{ 24, 54,  0},{  0, 63,  0},{  0, 60,  0},
@@ -429,4 +491,3 @@ Nes_Emu::rgb_t const Nes_Emu::nes_colors [color_table_size] =
 	{183,184,104},{162,195,106},{145,200,126},{135,198,160},
 	{136,190,197},{184,184,184},{  0,  0,  0},{  0,  0,  0}
 };
-
