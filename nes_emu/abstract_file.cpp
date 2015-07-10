@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <psp2/io/fcntl.h>
+
 /* Copyright (C) 2005-2006 Shay Green. Permission is hereby granted, free of
 charge, to any person obtaining a copy of this software module and associated
 documentation files (the "Software"), to deal in the Software without
@@ -44,7 +46,9 @@ Std_File_Writer::~Std_File_Writer() {
 error_t Std_File_Writer::open( const char* path )
 {
 	close();
-	file_ = fopen( path, "wb" );
+	//file_ = fopen( path, "wb" );
+	SceUID file_;
+	file_ = sceIoOpen( path, PSP2_O_WRONLY|PSP2_O_CREAT, 0777);
 	if ( !file_ )
 		RAISE_ERROR( "Couldn't open file for writing" );
 		
@@ -65,7 +69,9 @@ error_t Std_File_Writer::write( const void* p, long s )
 void Std_File_Writer::close()
 {
 	if ( file_ ) {
-		fclose( file_ );
+		//fclose( file_ );		
+		SceUID f = *(SceUID *) (file_);
+		sceIoClose(f);
 		file_ = 0;
 	}
 }
