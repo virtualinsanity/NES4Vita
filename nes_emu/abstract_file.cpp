@@ -51,10 +51,10 @@ error_t Std_File_Writer::open( const char* path )
 	file_ = sceIoOpen( path, PSP2_O_WRONLY|PSP2_O_CREAT, 0777);
 	if ( !file_ )
 		RAISE_ERROR( "Couldn't open file for writing" );
-		
+
 	// to do: increase file buffer size
 	//setvbuf( file_, 0, _IOFBF, 32 * 1024L );
-	
+
 	return 0;
 }
 
@@ -69,7 +69,7 @@ error_t Std_File_Writer::write( const void* p, long s )
 void Std_File_Writer::close()
 {
 	if ( file_ ) {
-		//fclose( file_ );		
+		//fclose( file_ );
 		SceUID f = *(SceUID *) (file_);
 		sceIoClose(f);
 		file_ = 0;
@@ -107,7 +107,7 @@ error_t Mem_Writer::write( const void* p, long s )
 	{
 		if ( mode == fixed )
 			RAISE_ERROR( "Tried to write more data than expected" );
-		
+
 		if ( mode == ignore_excess )
 		{
 			s = remain;
@@ -123,10 +123,10 @@ error_t Mem_Writer::write( const void* p, long s )
 			allocated = new_allocated;
 		}
 	}
-	
+
 	memcpy( data_ + size_, p, s );
 	size_ += s;
-	
+
 	return 0;
 }
 
@@ -177,6 +177,7 @@ Auto_File_Reader::~Auto_File_Reader()
 const char* Auto_File_Writer::open()
 {
 	#ifdef DISABLE_AUTO_FILE
+	aaa
 		return 0;
 	#else
 		if ( data )

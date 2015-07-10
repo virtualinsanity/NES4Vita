@@ -52,7 +52,7 @@ void Nes_State_::clear()
 {
 	memset( &nes, 0, sizeof nes );
 	nes.frame_count = static_cast<unsigned>(invalid_frame_count);
-	
+
 	nes_valid      = false;
 	cpu_valid      = false;
 	joypad_valid   = false;
@@ -99,7 +99,7 @@ blargg_err_t Nes_State_::write_blocks( Nes_File_Writer& out ) const
 		s.timestamp *= 5;
 		RETURN_ERR( write_nes_state( out, s ) );
 	}
-	
+
 	if ( cpu_valid )
 	{
 		cpu_state_t s;
@@ -112,34 +112,34 @@ blargg_err_t Nes_State_::write_blocks( Nes_File_Writer& out ) const
 		s.p = cpu->status;
 		RETURN_ERR( write_nes_state( out, s ) );
 	}
-	
+
 	if ( ppu_valid )
 	{
 		ppu_state_t s = *ppu;
 		RETURN_ERR( write_nes_state( out, s ) );
 	}
-	
+
 	if ( apu_valid )
 	{
 		apu_state_t s = *apu;
 		RETURN_ERR( write_nes_state( out, s ) );
 	}
-	
+
 	if ( joypad_valid )
 	{
 		joypad_state_t s = *joypad;
 		RETURN_ERR( write_nes_state( out, s ) );
 	}
-	
+
 	if ( mapper_valid )
 		RETURN_ERR( out.write_block( FOUR_CHAR('MAPR'), mapper->data, mapper->size ) );
-	
+
 	if ( ram_valid )
 		RETURN_ERR( out.write_block( FOUR_CHAR('LRAM'), ram, ram_size ) );
-	
+
 	if ( spr_ram_valid )
 		RETURN_ERR( out.write_block( FOUR_CHAR('SPRT'), spr_ram, spr_ram_size ) );
-	
+
 	if ( nametable_size )
 	{
 		check( nametable_size == 0x800 || nametable_size == 0x1000 );
@@ -148,14 +148,19 @@ blargg_err_t Nes_State_::write_blocks( Nes_File_Writer& out ) const
 		if ( nametable_size > 0x800 )
 			RETURN_ERR( out.write( chr, 0x800 ) );
 	}
-	
+
 	if ( chr_size )
 		RETURN_ERR( out.write_block( FOUR_CHAR('CHRR'), chr, chr_size ) );
-	
+
+#ifdef __LIBRETRO__ // Maintain constant save state size.
+	if ( sram_size )
+		RETURN_ERR( out.write_block( FOUR_CHAR('SRAM'), sram, sram_size ) );
+#else
 	// only save sram if it's been modified
 	if ( sram_size && mem_differs( sram, 0xff, sram_size ) )
 		RETURN_ERR( out.write_block( FOUR_CHAR('SRAM'), sram, sram_size ) );
-	
+#endif
+
 	return 0;
 }
 
@@ -170,7 +175,7 @@ blargg_err_t Nes_State_Reader::begin( Auto_File_Reader dr, Nes_State* out )
 	state_ = out;
 	if ( !out )
 		CHECK_ALLOC( state_ = owned = BLARGG_NEW Nes_State );
-	
+
 	RETURN_ERR( Nes_File_Reader::begin( dr ) );
 	if ( block_tag() != state_file_tag )
 		return "Not a state snapshot file";
@@ -183,7 +188,7 @@ blargg_err_t Nes_State::read( Auto_File_Reader in )
 	RETURN_ERR( reader.begin( in, this ) );
 	while ( !reader.done() )
 		RETURN_ERR( reader.next_block() );
-	
+
 	return 0;
 }
 
@@ -213,7 +218,7 @@ blargg_err_t Nes_State_::read_blocks( Nes_File_Reader& in )
 			RETURN_ERR( read_nes_state( in, &nes ) );
 			set_nes_state( nes );
 			break;
-		
+
 		case cpu_state_t::tag: {
 			cpu_state_t s;
 			memset( &s, 0, sizeof s );
@@ -227,36 +232,36 @@ blargg_err_t Nes_State_::read_blocks( Nes_File_Reader& in )
 			cpu_valid = true;
 			break;
 		}
-		
+
 		case ppu_state_t::tag:
 			memset( ppu, 0, sizeof *ppu );
 			RETURN_ERR( read_nes_state( in, ppu ) );
 			ppu_valid = true;
 			break;
-		
+
 		case apu_state_t::tag:
 			memset( apu, 0, sizeof *apu );
 			RETURN_ERR( read_nes_state( in, apu ) );
 			apu_valid = true;
 			break;
-		
+
 		case joypad_state_t::tag:
 			memset( joypad, 0, sizeof *joypad );
 			RETURN_ERR( read_nes_state( in, joypad ) );
 			joypad_valid = true;
 			break;
-		
+
 		case FOUR_CHAR('MAPR'):
 			mapper->size = in.remain();
 			RETURN_ERR( in.read_block_data( mapper->data, sizeof mapper->data ) );
 			mapper_valid = true;
 			break;
-		
+
 		case FOUR_CHAR('SPRT'):
 			spr_ram_valid = true;
 			RETURN_ERR( in.read_block_data( spr_ram, spr_ram_size ) );
 			break;
-			
+
 		case FOUR_CHAR('NTAB'):
 			nametable_size = in.remain();
 			check( nametable_size == 0x800 || nametable_size == 0x1000 );
@@ -264,25 +269,24 @@ blargg_err_t Nes_State_::read_blocks( Nes_File_Reader& in )
 			if ( nametable_size > 0x800 )
 				RETURN_ERR( in.read( chr, 0x800 ) );
 			break;
-			
+
 		case FOUR_CHAR('LRAM'):
 			ram_valid = true;
 			RETURN_ERR( in.read_block_data( ram, ram_size ) );
 			break;
-			
+
 		case FOUR_CHAR('CHRR'):
 			chr_size = in.remain();
 			RETURN_ERR( in.read_block_data( chr, chr_max ) );
 			break;
-			
+
 		case FOUR_CHAR('SRAM'):
 			sram_size = in.remain();
 			RETURN_ERR( in.read_block_data( sram, sram_max ) );
-			break; 
-		
+			break;
+
 		default:
 			return 0;
 		}
 	}
 }
-

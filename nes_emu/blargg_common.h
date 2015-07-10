@@ -15,6 +15,25 @@
 #include "blargg_config.h"
 #define BLARGG_COMMON_H
 
+#ifndef _ASSERT_H
+#define _ASSERT_H
+#ifdef NDEBUG
+# define assert(EX)
+#else
+# define assert(EX) (void)((EX) || (_Assert (#EX, __FILE__, __LINE__),0))
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern void _Assert (const char *msg, const char *file, int line);
+
+#ifdef __cplusplus
+ };
+#endif
+#endif
+
 /* BLARGG_COMPILER_HAS_BOOL: If 0, provides bool support for old compiler. If 1,
    compiler is assumed to support bool. If undefined, availability is determined.
    If errors occur here, add the following line to your config.h file:
@@ -70,7 +89,7 @@
 			typedef struct see_blargg_common_h int8_t;
 			typedef struct see_blargg_common_h uint8_t;
 		#endif
-		
+
 		#if USHRT_MAX == 0xFFFF
 			typedef short           int16_t;
 			typedef unsigned short  uint16_t;
@@ -79,7 +98,7 @@
 			typedef struct see_blargg_common_h int16_t;
 			typedef struct see_blargg_common_h uint16_t;
 		#endif
-		
+
 		#if ULONG_MAX == 0xFFFFFFFF
 			typedef long            int32_t;
 			typedef unsigned long   uint32_t;
@@ -115,10 +134,16 @@ typedef uint16_t blargg_wchar_t;
 #define STATIC_CAST(T,expr) static_cast<T> (expr)
 #define CONST_CAST( T,expr) const_cast<T> (expr)
 
-// blargg_err_t (0 on success, otherwise error string)
-#ifndef blargg_err_t
-	typedef const char* blargg_err_t;
-#endif
+typedef const char* blargg_err_t; // 0 on success, otherwise error string
+
+typedef uint16_t blargg_wchar_t;
+
+inline size_t blargg_wcslen( const blargg_wchar_t* str )
+{
+    size_t length = 0;
+    while ( *str++ ) length++;
+    return length;
+}
 
 // Success; no error
 blargg_err_t const blargg_ok = 0;
