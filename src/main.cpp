@@ -15,6 +15,7 @@
 #include "../nes_emu/Nes_Emu.h"
 #include "abstract_file.h"
 #include <vita2d.h>
+#include <psp2/audioout.h>
 
 #define SCREEN_W 960
 #define SCREEN_H 544
@@ -26,6 +27,7 @@ static int scale;
 
 unsigned int *framebuffer;
 vita2d_texture *framebufferTex;
+int audio_port;
 
 static uint8_t nes_width = 160;
 static uint8_t nes_height = 102;
@@ -81,7 +83,7 @@ int run_emu(const char *path)
 
 	Auto_File_Reader freader(path);
 	emu->load_ines(freader);
-
+	int16_t wave_buf[SCE_AUDIO_MAX_LEN]={0};
 	int scale = 2;
 	int pos_x = SCREEN_W/2 - (Nes_Emu::image_width/2)*scale;
 	int pos_y = SCREEN_H/2 - (Nes_Emu::image_height/2)*scale;
@@ -114,6 +116,9 @@ int run_emu(const char *path)
 		vita2d_draw_texture_scale(tex, pos_x, pos_y, scale, scale);
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
+		emu->read_samples(wave_buf, SCE_AUDIO_MAX_LEN);
+		sceAudioOutOutput(audio_port, wave_buf);
+
 	}
 
 	return 0;
@@ -125,16 +130,18 @@ int main()
 
 	vita2d_init();
 	printf("vita2d initialized");
-	
+	audio_port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_BGM, 256, 44100, SCE_AUDIO_OUT_MODE_MONO);
+	printf("audio initialized");
 	emu = new Nes_Emu();
 
-	const char *path = "ux0:data/path/roms/rom.nes";
+	const char *path = "ux0:data/pnes/roms/Mega Man 2 (USA).nes";
 
 	printf("Loading emulator.... %s", path);
 	run_emu(path);
 
 	delete emu;
 
+	sceAudioOutReleasePort(audio_port);
 	vita2d_fini();
 	sceKernelExitProcess(0);
 	return 0;
