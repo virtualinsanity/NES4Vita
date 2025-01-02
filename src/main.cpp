@@ -10,18 +10,14 @@
 #include <psp2/display.h>
 #include <psp2/gxm.h>
 #include <psp2/types.h>
-#include <psp2/moduleinfo.h>
 #include <psp2/kernel/processmgr.h>
 
 #include "../nes_emu/Nes_Emu.h"
 #include "abstract_file.h"
 #include <vita2d.h>
 
-PSP2_MODULE_INFO(0, 0, "NES4Vita");
-
 #define SCREEN_W 960
 #define SCREEN_H 544
-
 const SceSize sceUserMainThreadStackSize = 8*1024*1024;
 
 static Nes_Emu *emu;
@@ -46,14 +42,14 @@ struct keymap { unsigned psp2; unsigned nes; };
 #define JOY_RIGHT    0x80
 
 static const keymap bindmap[] = {
-   { PSP2_CTRL_CIRCLE, JOY_A },
-   { PSP2_CTRL_CROSS, JOY_B },
-   { PSP2_CTRL_SELECT, JOY_SELECT },
-   { PSP2_CTRL_START, JOY_START },
-   { PSP2_CTRL_UP, JOY_UP },
-   { PSP2_CTRL_DOWN, JOY_DOWN },
-   { PSP2_CTRL_LEFT, JOY_LEFT },
-   { PSP2_CTRL_RIGHT, JOY_RIGHT },
+   { SCE_CTRL_CROSS, JOY_A },
+   { SCE_CTRL_SQUARE, JOY_B },
+   { SCE_CTRL_SELECT, JOY_SELECT },
+   { SCE_CTRL_START, JOY_START },
+   { SCE_CTRL_UP, JOY_UP },
+   { SCE_CTRL_DOWN, JOY_DOWN },
+   { SCE_CTRL_LEFT, JOY_LEFT },
+   { SCE_CTRL_RIGHT, JOY_RIGHT },
 };
 
 unsigned update_input(SceCtrlData *pad)
@@ -89,11 +85,9 @@ int run_emu(const char *path)
 	int scale = 2;
 	int pos_x = SCREEN_W/2 - (Nes_Emu::image_width/2)*scale;
 	int pos_y = SCREEN_H/2 - (Nes_Emu::image_height/2)*scale;
-
 	while (1) {
 		sceCtrlPeekBufferPositive(0, &pad, 1);
-		if (pad.buttons & (PSP2_CTRL_START & PSP2_CTRL_SELECT)) break;
-
+		if (pad.buttons & (SCE_CTRL_START & SCE_CTRL_SELECT)) break;
 		joypad1 = joypad2 = update_input(&pad);
 
 		emu->emulate_frame(joypad1, joypad2);
@@ -118,7 +112,6 @@ int run_emu(const char *path)
 		vita2d_clear_screen();
 
 		vita2d_draw_texture_scale(tex, pos_x, pos_y, scale, scale);
-
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
 	}
@@ -132,10 +125,10 @@ int main()
 
 	vita2d_init();
 	printf("vita2d initialized");
-
+	
 	emu = new Nes_Emu();
 
-	const char *path = "cache0:/VitaDefilerClient/Documents/rom.nes";
+	const char *path = "ux0:data/path/roms/rom.nes";
 
 	printf("Loading emulator.... %s", path);
 	run_emu(path);

@@ -48,7 +48,7 @@ error_t Std_File_Writer::open( const char* path )
 	close();
 	//file_ = fopen( path, "wb" );
 	SceUID file_;
-	file_ = sceIoOpen( path, PSP2_O_WRONLY|PSP2_O_CREAT, 0777);
+	file_ = sceIoOpen( path, SCE_O_WRONLY|SCE_O_CREAT, 0777);
 	if ( !file_ )
 		RAISE_ERROR( "Couldn't open file for writing" );
 

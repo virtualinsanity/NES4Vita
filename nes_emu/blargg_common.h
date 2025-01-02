@@ -17,21 +17,7 @@
 
 #ifndef _ASSERT_H
 #define _ASSERT_H
-#ifdef NDEBUG
-# define assert(EX)
-#else
-# define assert(EX) (void)((EX) || (_Assert (#EX, __FILE__, __LINE__),0))
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern void _Assert (const char *msg, const char *file, int line);
-
-#ifdef __cplusplus
- };
-#endif
+#include<assert.h>
 #endif
 
 /* BLARGG_COMPILER_HAS_BOOL: If 0, provides bool support for old compiler. If 1,

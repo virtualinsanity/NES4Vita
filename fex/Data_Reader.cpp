@@ -489,7 +489,7 @@ blargg_wchar_t* blargg_to_wide( const char* path )
 
 static inline SceUID blargg_fopen( const char path [], const char mode [] )
 {
-	return sceIoOpen( path, PSP2_O_RDONLY, 0777);
+	return sceIoOpen( path, SCE_O_RDONLY, 0777);
 	//return fopen( path, mode );
 }
 
@@ -518,12 +518,12 @@ static blargg_err_t blargg_fopen( SceUID* out, const char path [] )
 
 static blargg_err_t blargg_fsize( SceUID f, long* out )
 {
-	*out = sceIoLseek(f,0,PSP2_SEEK_END);
+	*out = sceIoLseek(f,0,SCE_SEEK_END);
 
 	if ( *out < 0 )
 		return blargg_err_file_io;
 
-	if ( sceIoLseek(f,0,PSP2_SEEK_SET) < 0 )
+	if ( sceIoLseek(f,0,SCE_SEEK_SET) < 0 )
 		return blargg_err_file_io;
 
 	return blargg_ok;
@@ -574,7 +574,7 @@ blargg_err_t Std_File_Reader::read_v( void* p, int s )
 blargg_err_t Std_File_Reader::seek_v( BOOST::uint64_t n )
 {
 		SceUID f = (SceUID) (file_);
-    if (  sceIoLseek(f,n,PSP2_SEEK_SET) < 0 )
+    if (  sceIoLseek(f,n,SCE_SEEK_SET) < 0 )
 	{
 		// Data_Reader's wrapper should prevent EOF
 		check( !feof( STATIC_CAST(FILE*, file_) ) );
