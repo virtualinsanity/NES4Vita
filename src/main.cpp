@@ -134,7 +134,7 @@ int main()
 	printf("audio initialized");
 	emu = new Nes_Emu();
 
-	const char *path = "ux0:data/pnes/roms/Mega Man 2 (USA).nes";
+	const char *path = "ux0:data/path/to/rom.nes";
 
 	printf("Loading emulator.... %s", path);
 	run_emu(path);
