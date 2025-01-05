@@ -30,7 +30,6 @@ static int scale;
 
 unsigned int *framebuffer;
 vita2d_texture *framebufferTex;
-int audio_port;
 const uint32_t vita_palette[Nes_Emu::color_table_size] = {
 	0xff666666,0xff882a00,0xffa81214,0xffa4003b,
 	0xff7e005c,0xff40006e,0xff00076c,0xff001d57,
@@ -163,7 +162,9 @@ const uint32_t vita_palette[Nes_Emu::color_table_size] = {
 };
 static uint8_t nes_width = 160;
 static uint8_t nes_height = 102;
-
+int16_t wave_buf[SCE_AUDIO_MAX_LEN]={0};
+size_t frame_count = 0, sample_count = 0, buffer_block = 0;
+static int vita_audio_thread(SceSize args, void *argp);
 struct keymap { unsigned psp2; unsigned nes; };
 
 #define JOY_A           1
@@ -201,7 +202,6 @@ unsigned update_input(SceCtrlData *pad)
 int run_emu(const char *path)
 {
 	char msg[512];
-	size_t frame_count = 0;
 	SceCtrlData pad;
 	unsigned int joypad1, joypad2;
 	vita2d_pgf *pgf = vita2d_load_default_pgf();
@@ -217,30 +217,19 @@ int run_emu(const char *path)
 
 	Auto_File_Reader freader(path);
 	emu->load_ines(freader);
-	int16_t wave_buf[SCE_AUDIO_MAX_LEN]={0};
+	
 	int scale = 2;
 	int pos_x = SCREEN_W/2 - (Nes_Emu::image_width/2)*scale;
 	int pos_y = SCREEN_H/2 - (Nes_Emu::image_height/2)*scale;
-	size_t sample_count = 0;
 	struct timespec start, end;
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	while (1) {
-		frame_count++;
 		sceCtrlPeekBufferPositive(0, &pad, 1);
 		if (pad.buttons & (SCE_CTRL_START & SCE_CTRL_SELECT)) break;
 		joypad1 = joypad2 = update_input(&pad);
 
 		emu->emulate_frame(joypad1, joypad2);
 		const Nes_Emu::frame_t &frame = emu->frame();
-		long samples = emu->read_samples(wave_buf+sample_count, SAMPLE_COUNT);
-		if((sample_count += samples) >= SAMPLE_COUNT){
-			sceAudioOutOutput(audio_port, wave_buf);
-			//shift the first SAMPLE_COUNT samples back
-			for(int i = SAMPLE_COUNT; i < sample_count; i++){
-				wave_buf[i-SAMPLE_COUNT] = wave_buf[i];
-			}
-			sample_count = sample_count - SAMPLE_COUNT;
-		}
 		const uint8_t *in_pixels = frame.pixels;
 		uint32_t *out_pixels = (uint32_t *)tex_data;
 
@@ -266,13 +255,16 @@ int run_emu(const char *path)
 				diff_nsec += G;
 			}
 			int64_t frame_time =  diff_sec * G + diff_nsec;
-			sprintf(msg, "FPS %.1f sample_count %d", 1000000000.0f/frame_time, sample_count);
+			sprintf(msg, "FPS %.1f", 1000000000.0f/frame_time);
 		}
 		start.tv_sec = end.tv_sec;
 		start.tv_nsec = end.tv_nsec;
 		vita2d_pgf_draw_text(pgf, 0, 30, RGBA8(0,255,0,255), 1.0f, msg);
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
+		while(buffer_block); //wait until t
+		sample_count += emu->read_samples(wave_buf+sample_count, SAMPLE_COUNT);
+		frame_count++;
 	}
 
 	return 0;
@@ -284,19 +276,40 @@ int main()
 
 	vita2d_init();
 	printf("vita2d initialized");
-	audio_port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_BGM, SAMPLE_COUNT, 48000, SCE_AUDIO_OUT_MODE_MONO);
-	printf("audio initialized");
 	emu = new Nes_Emu();
 
 	const char *path = "ux0:data/nes4vita/rom.nes";
-
+	SceUID audiothread = 
+		sceKernelCreateThread("Audio Thread", &vita_audio_thread, 
+					0x10000100, 0x10000, 0, 0, NULL);
+    sceKernelStartThread(audiothread, 0, NULL);
 	printf("Loading emulator.... %s", path);
 	run_emu(path);
 
 	delete emu;
-
-	sceAudioOutReleasePort(audio_port);
 	vita2d_fini();
 	sceKernelExitProcess(0);
 	return 0;
+}
+
+static int vita_audio_thread(SceSize args, void *argp) {
+    int audio_port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_MAIN, SAMPLE_COUNT, 48000, SCE_AUDIO_OUT_MODE_MONO);
+	size_t last_frame = 0;
+    for (;;) {
+		if(frame_count == last_frame)
+			continue; //frame already played
+		last_frame = frame_count;
+		if(sample_count >= SAMPLE_COUNT){
+			buffer_block = 1;
+			sceAudioOutOutput(audio_port, wave_buf);
+			//shift the first (sample_count - SAMPLE_COUNT) samples back
+			for(int i = SAMPLE_COUNT; i < sample_count; i++){
+				wave_buf[i-SAMPLE_COUNT] = wave_buf[i];
+			}
+			sample_count = sample_count - SAMPLE_COUNT;
+			buffer_block = 0;
+		}
+    }
+    sceAudioOutReleasePort(audio_port);
+    return sceKernelExitDeleteThread(0);
 }
