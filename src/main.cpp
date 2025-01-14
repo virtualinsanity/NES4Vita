@@ -12,9 +12,10 @@
 #include <psp2/types.h>
 #include <psp2/kernel/processmgr.h>
 
-#include "../nes_emu/Nes_Emu.h"
+#include "Nes_Emu.h"
 #include "abstract_file.h"
 #include "vita_palette.h"
+#include "std_file_reader.h"
 #include <vita2d.h>
 #include <psp2/audioout.h>
 #include <time.h>
@@ -25,6 +26,7 @@
 #define G 1000000000L
 #define SHOW_FPS 0
 #define FULLSCREEN 0
+#define FILE_BUFFER_SIZE 10 * 1024 * 1024
 const SceSize sceUserMainThreadStackSize = 8*1024*1024;
 
 static Nes_Emu *emu;
@@ -86,9 +88,11 @@ int run_emu(const char *path)
 
 	static uint32_t video_buffer[Nes_Emu::image_width * Nes_Emu::image_height];
 	emu->set_pixels(video_buffer, Nes_Emu::image_width);
-
-	Auto_File_Reader freader(path);
+	
+	Std_File_Reader freader;
+	freader.open(path);
 	emu->load_ines(freader);
+	freader.close();
 	#if FULLSCREEN
 	float scale = (float)SCREEN_H/(float)Nes_Emu::image_height;
 	int pos_y = 0;

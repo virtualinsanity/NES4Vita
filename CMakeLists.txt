@@ -12,41 +12,37 @@ project(nes4vita)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
 set (SRC
-        nes_emu/abstract_file.cpp
-        nes_emu/apu_state.cpp
-        nes_emu/Blip_Buffer.cpp
-        nes_emu/Effects_Buffer.cpp
-        nes_emu/Mapper_Fme7.cpp
-        nes_emu/Mapper_Mmc5.cpp
-        nes_emu/Mapper_Namco106.cpp
-        nes_emu/Mapper_Vrc6.cpp
-        nes_emu/misc_mappers.cpp
-        nes_emu/Multi_Buffer.cpp
-        nes_emu/Nes_Apu.cpp
-        nes_emu/Nes_Buffer.cpp
-        nes_emu/Nes_Cart.cpp
-        nes_emu/Nes_Core.cpp
-        nes_emu/Nes_Cpu.cpp
-        nes_emu/Nes_File.cpp
-        nes_emu/nes_data.cpp
-        nes_emu/Nes_Effects_Buffer.cpp
-        nes_emu/Nes_Emu.cpp
-        nes_emu/Nes_State.cpp
-        nes_emu/Nes_Fme7_Apu.cpp
-        nes_emu/Nes_Mapper.cpp
-        nes_emu/nes_mappers.cpp
-        nes_emu/Nes_Mmc1.cpp
-        nes_emu/Nes_Mmc3.cpp
-        nes_emu/Nes_Namco_Apu.cpp
-        nes_emu/Nes_Oscs.cpp
-        nes_emu/Nes_Ppu.cpp
-        nes_emu/Nes_Ppu_Impl.cpp
-        nes_emu/Nes_Ppu_Rendering.cpp
-        nes_emu/nes_util.cpp
-        nes_emu/Nes_Vrc6_Apu.cpp
-        fex/Data_Reader.cpp
-        fex/blargg_errors.cpp
+        externals/quicknes/nes_emu/abstract_file.cpp
+        externals/quicknes/nes_emu/apu_state.cpp
+        externals/quicknes/nes_emu/Blip_Buffer.cpp
+        externals/quicknes/nes_emu/Data_Reader.cpp
+        externals/quicknes/nes_emu/Effects_Buffer.cpp
+        externals/quicknes/nes_emu/emu2413.cpp
+        externals/quicknes/nes_emu/emu2413_state.cpp
+        externals/quicknes/nes_emu/Multi_Buffer.cpp
+        externals/quicknes/nes_emu/Nes_Apu.cpp
+        externals/quicknes/nes_emu/Nes_Buffer.cpp
+        externals/quicknes/nes_emu/Nes_Cart.cpp
+        externals/quicknes/nes_emu/Nes_Core.cpp
+        externals/quicknes/nes_emu/Nes_Cpu.cpp
+        externals/quicknes/nes_emu/nes_data.cpp
+        externals/quicknes/nes_emu/Nes_Effects_Buffer.cpp
+        externals/quicknes/nes_emu/Nes_Emu.cpp
+        externals/quicknes/nes_emu/Nes_File.cpp
+        externals/quicknes/nes_emu/Nes_Fme7_Apu.cpp
+        externals/quicknes/nes_emu/Nes_Mapper.cpp
+        externals/quicknes/nes_emu/Nes_Namco_Apu.cpp
+        externals/quicknes/nes_emu/nes_ntsc.cpp
+        externals/quicknes/nes_emu/Nes_Oscs.cpp
+        externals/quicknes/nes_emu/Nes_Ppu.cpp
+        externals/quicknes/nes_emu/Nes_Ppu_Impl.cpp
+        externals/quicknes/nes_emu/Nes_Ppu_Rendering.cpp
+        externals/quicknes/nes_emu/Nes_State.cpp
+        externals/quicknes/nes_emu/nes_util.cpp
+        externals/quicknes/nes_emu/Nes_Vrc6_Apu.cpp
+        externals/quicknes/nes_emu/Nes_Vrc7.cpp
         src/main.cpp
+        src/std_file_reader.cpp
 )
 set(VITA_APP_NAME "Nes Emulator")
 set(VITA_TITLEID  "VSDK00018")
@@ -58,8 +54,7 @@ add_executable(${PROJECT_NAME}
 target_include_directories(
   ${PROJECT_NAME}
   PUBLIC
-  fex
-  nes_emu
+  externals/quicknes/nes_emu
 )
 target_link_libraries(${PROJECT_NAME}
   vita2d
