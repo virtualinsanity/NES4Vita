@@ -27,6 +27,7 @@
 #define SHOW_FPS 0
 #define FULLSCREEN 0
 #define FILE_BUFFER_SIZE 10 * 1024 * 1024
+#define OVERSCAN_V 8
 const SceSize sceUserMainThreadStackSize = 8*1024*1024;
 
 static Nes_Emu *emu;
@@ -114,11 +115,13 @@ int run_emu(const char *path)
 		emu->emulate_frame(joypad1, joypad2);
 		const Nes_Emu::frame_t &frame = emu->frame();
 		const uint8_t *in_pixels = frame.pixels;
+		const unsigned image_height = Nes_Emu::image_height;
+		const unsigned image_width = Nes_Emu::image_width;
 		uint32_t *out_pixels = (uint32_t *)tex_data;
 
-		for (unsigned h = 0; h < Nes_Emu::image_height;
-			h++, in_pixels += frame.pitch, out_pixels += Nes_Emu::image_width) {
-			for (unsigned w = 0; w < Nes_Emu::image_width; w++) {
+		for (unsigned h = 0; h < image_height;
+			h++, in_pixels += frame.pitch, out_pixels += image_width) {
+			for (unsigned w = OVERSCAN_V; w < image_width; w++) {
 				unsigned col = frame.palette[in_pixels[w]];
 				const uint32_t color = vita_palette[col];
 				out_pixels[w] = color;
