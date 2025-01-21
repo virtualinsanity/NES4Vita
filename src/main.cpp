@@ -39,7 +39,8 @@ vita2d_texture *framebufferTex;
 static uint8_t nes_width = 160;
 static uint8_t nes_height = 102;
 int16_t wave_buf[SCE_AUDIO_MAX_LEN]={0};
-size_t frame_count = 0, sample_count = 0, buffer_block = 0;
+size_t frame_count = 0, sample_count = 0;
+SceUID wave_buf_mutex;
 static int vita_audio_thread(SceSize args, void *argp);
 struct keymap { unsigned psp2; unsigned nes; };
 
@@ -149,8 +150,9 @@ int run_emu(const char *path)
 		#endif
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
-		while(buffer_block); //wait until the buffer is unlocked by the thread
+		sceKernelLockMutex(wave_buf_mutex, 1, 0);
 		sample_count += emu->read_samples(wave_buf+sample_count, SAMPLE_COUNT);
+		sceKernelUnlockMutex(wave_buf_mutex, 1);
 		frame_count++;
 	}
 
@@ -170,6 +172,7 @@ int main()
 		sceKernelCreateThread("Audio Thread", &vita_audio_thread, 
 					0x10000100, 0x10000, 0, 0, NULL);
     sceKernelStartThread(audiothread, 0, NULL);
+	wave_buf_mutex = sceKernelCreateMutex("wave_buf_mutex", 0, 0, 0);
 	printf("Loading emulator.... %s", path);
 	run_emu(path);
 
@@ -181,20 +184,16 @@ int main()
 
 static int vita_audio_thread(SceSize args, void *argp) {
     int audio_port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_MAIN, SAMPLE_COUNT, 48000, SCE_AUDIO_OUT_MODE_MONO);
-	size_t last_frame = 0;
     for (;;) {
-		if(frame_count == last_frame)
-			continue; //frame already played
-		last_frame = frame_count;
 		if(sample_count >= SAMPLE_COUNT){
-			buffer_block = 1;
+			sceKernelLockMutex(wave_buf_mutex, 1, 0);
 			sceAudioOutOutput(audio_port, wave_buf);
 			//shift the first (sample_count - SAMPLE_COUNT) samples back
 			for(int i = SAMPLE_COUNT; i < sample_count; i++){
 				wave_buf[i-SAMPLE_COUNT] = wave_buf[i];
 			}
 			sample_count = sample_count - SAMPLE_COUNT;
-			buffer_block = 0;
+			sceKernelUnlockMutex(wave_buf_mutex, 1);
 		}
     }
     sceAudioOutReleasePort(audio_port);
