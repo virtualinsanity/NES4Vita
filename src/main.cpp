@@ -22,7 +22,7 @@
 
 #define SCREEN_W 960
 #define SCREEN_H 544
-#define SAMPLE_COUNT 1024
+#define SAMPLE_COUNT 1024u
 #define G 1000000000L
 #define SHOW_FPS 0
 #define FULLSCREEN 0
@@ -38,7 +38,7 @@ unsigned int *framebuffer;
 vita2d_texture *framebufferTex;
 static uint8_t nes_width = 160;
 static uint8_t nes_height = 102;
-int16_t wave_buf[SCE_AUDIO_MAX_LEN]={0};
+int16_t wave_buf[SCE_AUDIO_MAX_LEN]={0}, zero_buf[SAMPLE_COUNT]={0};
 size_t frame_count = 0, sample_count = 0;
 SceUID wave_buf_mutex;
 static int vita_audio_thread(SceSize args, void *argp);
@@ -81,7 +81,7 @@ int run_emu(const char *path)
 	SceCtrlData pad;
 	unsigned int joypad1, joypad2;
 	vita2d_pgf *pgf = vita2d_load_default_pgf();
-	emu->set_sample_rate(48000);
+	emu->set_sample_rate(44100);
 	emu->set_equalizer(Nes_Emu::nes_eq);
 	emu->set_palette_range(0);
 
@@ -183,10 +183,10 @@ int main()
 }
 
 static int vita_audio_thread(SceSize args, void *argp) {
-    int audio_port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_MAIN, SAMPLE_COUNT, 48000, SCE_AUDIO_OUT_MODE_MONO);
+    int audio_port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_BGM, SAMPLE_COUNT, 44100, SCE_AUDIO_OUT_MODE_MONO);
     for (;;) {
 		if(sample_count >= SAMPLE_COUNT){
-			sceKernelLockMutex(wave_buf_mutex, 1, 0);
+			sceKernelTryLockMutex(wave_buf_mutex, 1);
 			sceAudioOutOutput(audio_port, wave_buf);
 			//shift the first (sample_count - SAMPLE_COUNT) samples back
 			for(int i = SAMPLE_COUNT; i < sample_count; i++){
@@ -195,6 +195,9 @@ static int vita_audio_thread(SceSize args, void *argp) {
 			sample_count = sample_count - SAMPLE_COUNT;
 			sceKernelUnlockMutex(wave_buf_mutex, 1);
 		}
+		else
+			sceAudioOutOutput(audio_port, zero_buf);
+		sceAudioOutOutput(audio_port, NULL); //Block until the sample is finished
     }
     sceAudioOutReleasePort(audio_port);
     return sceKernelExitDeleteThread(0);
