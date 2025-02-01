@@ -16,6 +16,7 @@
 #include "abstract_file.h"
 #include "vita_palette.h"
 #include "std_file_reader.h"
+#include "std_file_writer.h"
 #include <vita2d.h>
 #include <psp2/audioout.h>
 #include <time.h>
@@ -108,9 +109,22 @@ int run_emu(const char *path)
 	struct timespec start, end;
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	#endif
+	
 	while (1) {
 		sceCtrlPeekBufferPositive(0, &pad, 1);
 		if (pad.buttons & (SCE_CTRL_START & SCE_CTRL_SELECT)) break;
+		if(pad.buttons & SCE_CTRL_L2){
+			Std_File_Writer fwriter_state;
+			fwriter_state.open("ux0:data/nes4vita/rom.sav");
+			emu->save_state(fwriter_state);
+			fwriter_state.close();
+		}
+		if(pad.buttons & SCE_CTRL_R2){
+			Std_File_Reader freader_state;
+			freader_state.open("ux0:data/nes4vita/rom.sav");
+			emu->load_state(freader_state);
+			freader_state.close();
+		}
 		joypad1 = joypad2 = update_input(&pad);
 
 		emu->emulate_frame(joypad1, joypad2);
@@ -142,7 +156,7 @@ int run_emu(const char *path)
 				diff_nsec += G;
 			}
 			int64_t frame_time =  diff_sec * G + diff_nsec;
-			sprintf(msg, "FPS %.1f", 1000000000.0f/frame_time);
+			sprintf(msg, "%d FPS %.1f", frame_count, 1000000000.0f/frame_time);
 		}
 		start.tv_sec = end.tv_sec;
 		start.tv_nsec = end.tv_nsec;

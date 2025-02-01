@@ -43,6 +43,8 @@ set (SRC
         externals/quicknes/nes_emu/Nes_Vrc7.cpp
         src/main.cpp
         src/std_file_reader.cpp
+        src/std_file_writer.cpp
+        src/file_functions.cpp
 )
 set(VITA_APP_NAME "Nes Emulator")
 set(VITA_TITLEID  "VSDK00018")
