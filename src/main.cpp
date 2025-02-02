@@ -44,7 +44,10 @@ size_t frame_count = 0, sample_count = 0;
 SceUID wave_buf_mutex;
 static int vita_audio_thread(SceSize args, void *argp);
 struct keymap { unsigned psp2; unsigned nes; };
-
+struct info_message{
+	const char * message;
+	int64_t message_time_ns = 0, message_left_time_ns = 0;
+};
 #define JOY_A           1
 #define JOY_B           2
 #define JOY_SELECT      4
@@ -77,6 +80,11 @@ unsigned update_input(SceCtrlData *pad)
    return res;
 }
 
+void show_info_message(info_message* message, const char * msg, int64_t time){
+	message->message = msg;
+	message->message_time_ns = message->message_left_time_ns = time;
+}
+
 int run_emu(const char *path)
 {
 	SceCtrlData pad;
@@ -85,7 +93,7 @@ int run_emu(const char *path)
 	emu->set_sample_rate(44100);
 	emu->set_equalizer(Nes_Emu::nes_eq);
 	emu->set_palette_range(0);
-
+	info_message message;
 	vita2d_texture *tex = vita2d_create_empty_texture(Nes_Emu::image_width, Nes_Emu::image_height);
 	void *tex_data = vita2d_texture_get_datap(tex);
 
@@ -106,10 +114,9 @@ int run_emu(const char *path)
 	int pos_x = SCREEN_W/2 - (Nes_Emu::image_width/2)*scale;
 	#if SHOW_FPS
 	char msg[512];
+	#endif
 	struct timespec start, end;
 	clock_gettime(CLOCK_MONOTONIC, &start);
-	#endif
-	
 	while (1) {
 		sceCtrlPeekBufferPositive(0, &pad, 1);
 		if (pad.buttons & (SCE_CTRL_START & SCE_CTRL_SELECT)) break;
@@ -118,12 +125,14 @@ int run_emu(const char *path)
 			fwriter_state.open("ux0:data/nes4vita/rom.sav");
 			emu->save_state(fwriter_state);
 			fwriter_state.close();
+			show_info_message(&message, "State Saved", 2*G);
 		}
 		if(pad.buttons & SCE_CTRL_R2){
 			Std_File_Reader freader_state;
 			freader_state.open("ux0:data/nes4vita/rom.sav");
 			emu->load_state(freader_state);
 			freader_state.close();
+			show_info_message(&message, "State Loaded", 2*G);
 		}
 		joypad1 = joypad2 = update_input(&pad);
 
@@ -146,22 +155,34 @@ int run_emu(const char *path)
 		vita2d_start_drawing();
 		vita2d_clear_screen();
 		vita2d_draw_texture_scale(tex, pos_x, pos_y, scale, scale);
-		#if SHOW_FPS
 		clock_gettime(CLOCK_MONOTONIC, &end);
+		int64_t diff_sec = end.tv_sec - start.tv_sec;
+		int64_t diff_nsec = end.tv_nsec - start.tv_nsec;
+		int64_t frame_time =  diff_sec * G + diff_nsec;
+		//check if there's a message to show
+		if(message.message_left_time_ns > 0){
+			int text_width = vita2d_pgf_text_width(pgf, 1.0, message.message);
+			//set the alpha based on the time left and the time frame time
+			u_int8_t alpha = 255 * message.message_left_time_ns / message.message_time_ns;
+			//if so show the message
+			vita2d_draw_rectangle((SCREEN_W - 210.0) / 2, SCREEN_H - 105, 210.0, 50.0, RGBA8(255, 0, 0, alpha));
+			vita2d_draw_rectangle((SCREEN_W - 200.0) / 2, SCREEN_H - 100, 200.0, 40.0, RGBA8(0, 0, 0, alpha));
+			vita2d_pgf_draw_text(pgf, (SCREEN_W - text_width) / 2, SCREEN_H - 80, RGBA8(255,255,255,alpha), 1.0f, message.message);
+			//update the time left
+			message.message_left_time_ns -= frame_time;
+		}
+		#if SHOW_FPS
 		if(frame_count % 10 == 0){
-			int64_t diff_sec = end.tv_sec - start.tv_sec;
-			int64_t diff_nsec = end.tv_nsec - start.tv_nsec;
 			if(diff_nsec < 0){
 				diff_sec--;
 				diff_nsec += G;
 			}
-			int64_t frame_time =  diff_sec * G + diff_nsec;
 			sprintf(msg, "%d FPS %.1f", frame_count, 1000000000.0f/frame_time);
 		}
-		start.tv_sec = end.tv_sec;
-		start.tv_nsec = end.tv_nsec;
 		vita2d_pgf_draw_text(pgf, 0, 30, RGBA8(0,255,0,255), 1.0f, msg);
 		#endif
+		start.tv_sec = end.tv_sec;
+		start.tv_nsec = end.tv_nsec;
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
 		sceKernelLockMutex(wave_buf_mutex, 1, 0);
