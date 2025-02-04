@@ -23,6 +23,7 @@
 
 #define SCREEN_W 960
 #define SCREEN_H 544
+#define BORDER 10
 #define SAMPLE_COUNT 1024u
 #define G 1000000000L
 #define SHOW_FPS 0
@@ -161,12 +162,12 @@ int run_emu(const char *path)
 		int64_t frame_time =  diff_sec * G + diff_nsec;
 		//check if there's a message to show
 		if(message.message_left_time_ns > 0){
-			int text_width = vita2d_pgf_text_width(pgf, 1.0, message.message);
+			const int text_width = vita2d_pgf_text_width(pgf, 1.0, message.message);
 			//set the alpha based on the time left and the time frame time
-			u_int8_t alpha = 255 * message.message_left_time_ns / message.message_time_ns;
+			const u_int8_t alpha = 255 * message.message_left_time_ns / message.message_time_ns;
 			//if so show the message
-			vita2d_draw_rectangle((SCREEN_W - 210.0) / 2, SCREEN_H - 105, 210.0, 50.0, RGBA8(255, 0, 0, alpha));
-			vita2d_draw_rectangle((SCREEN_W - 200.0) / 2, SCREEN_H - 100, 200.0, 40.0, RGBA8(0, 0, 0, alpha));
+			vita2d_draw_rectangle((SCREEN_W - (text_width + 2*BORDER)) / 2, SCREEN_H - 105, text_width + 2*BORDER, 50.0, RGBA8(255, 0, 0, alpha));
+			vita2d_draw_rectangle((SCREEN_W - (text_width + BORDER)) / 2, SCREEN_H - 100, text_width + BORDER, 40.0, RGBA8(0, 0, 0, alpha));
 			vita2d_pgf_draw_text(pgf, (SCREEN_W - text_width) / 2, SCREEN_H - 80, RGBA8(255,255,255,alpha), 1.0f, message.message);
 			//update the time left
 			message.message_left_time_ns -= frame_time;
