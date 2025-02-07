@@ -47,17 +47,19 @@ set (SRC
         src/file_functions.cpp
 )
 set(VITA_APP_NAME "Nes Emulator")
-set(VITA_TITLEID  "VSDK00018")
+set(VITA_TITLEID  "QNES00018")
 set(VITA_VERSION  "01.00")
 
 add_executable(${PROJECT_NAME}
   ${SRC}
 )
+
 target_include_directories(
   ${PROJECT_NAME}
   PUBLIC
   externals/quicknes/nes_emu
 )
+
 target_link_libraries(${PROJECT_NAME}
   vita2d
   SceDisplay_stub
@@ -81,6 +83,7 @@ vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME})
 vita_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} ${PROJECT_NAME}.self
   VERSION ${VITA_VERSION}
   NAME ${VITA_APP_NAME}
+  FILE vita/args.txt args.txt
   FILE vita/sce_sys/icon0.png sce_sys/icon0.png
   FILE vita/sce_sys/livearea/contents/bg.png sce_sys/livearea/contents/bg.png
   FILE vita/sce_sys/livearea/contents/startup.png sce_sys/livearea/contents/startup.png

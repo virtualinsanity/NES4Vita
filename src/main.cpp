@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <malloc.h>
+#include <libgen.h>
 
 #include <psp2/ctrl.h>
 #include <psp2/touch.h>
@@ -11,6 +12,7 @@
 #include <psp2/gxm.h>
 #include <psp2/types.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/io/stat.h> 
 
 #include "Nes_Emu.h"
 #include "abstract_file.h"
@@ -30,6 +32,7 @@
 #define FULLSCREEN 0
 #define FILE_BUFFER_SIZE 10 * 1024 * 1024
 #define OVERSCAN_V 8
+#define SAVE_STATE_FILE_FORMAT "ux0:data/nes4vita/%s.sav"
 const SceSize sceUserMainThreadStackSize = 8*1024*1024;
 
 static Nes_Emu *emu;
@@ -86,8 +89,11 @@ void show_info_message(info_message* message, const char * msg, int64_t time){
 	message->message_time_ns = message->message_left_time_ns = time;
 }
 
-int run_emu(const char *path)
+int run_emu(char *path)
 {
+	const char *file_name = basename(path);
+	char save_file_name[255];
+	sprintf(save_file_name, SAVE_STATE_FILE_FORMAT, file_name); 
 	SceCtrlData pad;
 	unsigned int joypad1, joypad2;
 	vita2d_pgf *pgf = vita2d_load_default_pgf();
@@ -123,20 +129,27 @@ int run_emu(const char *path)
 		if (pad.buttons & (SCE_CTRL_START & SCE_CTRL_SELECT)) break;
 		if(pad.buttons & SCE_CTRL_L2){
 			Std_File_Writer fwriter_state;
-			fwriter_state.open("ux0:data/nes4vita/rom.sav");
-			emu->save_state(fwriter_state);
-			fwriter_state.close();
-			show_info_message(&message, "State Saved", 2*G);
+			if(fwriter_state.open(save_file_name) == 0){
+				emu->save_state(fwriter_state);
+				fwriter_state.close();
+				show_info_message(&message, "State Saved", 2*G);
+			}
+			else
+				show_info_message(&message, "No save file created", 2*G);
+			
 		}
 		if(pad.buttons & SCE_CTRL_R2){
 			Std_File_Reader freader_state;
-			freader_state.open("ux0:data/nes4vita/rom.sav");
-			emu->load_state(freader_state);
-			freader_state.close();
-			show_info_message(&message, "State Loaded", 2*G);
+			if(freader_state.open(save_file_name) == 0){
+				emu->load_state(freader_state);
+				freader_state.close();
+				show_info_message(&message, "State Loaded", 2*G);
+			}
+			else
+				show_info_message(&message, "No save file found", 2*G);
 		}
+		
 		joypad1 = joypad2 = update_input(&pad);
-
 		emu->emulate_frame(joypad1, joypad2);
 		const Nes_Emu::frame_t &frame = emu->frame();
 		const uint8_t *in_pixels = frame.pixels;
@@ -157,9 +170,9 @@ int run_emu(const char *path)
 		vita2d_clear_screen();
 		vita2d_draw_texture_scale(tex, pos_x, pos_y, scale, scale);
 		clock_gettime(CLOCK_MONOTONIC, &end);
-		int64_t diff_sec = end.tv_sec - start.tv_sec;
-		int64_t diff_nsec = end.tv_nsec - start.tv_nsec;
-		int64_t frame_time =  diff_sec * G + diff_nsec;
+		const int64_t diff_sec = end.tv_sec - start.tv_sec;
+		const int64_t diff_nsec = end.tv_nsec - start.tv_nsec;
+		const int64_t frame_time =  diff_sec * G + diff_nsec;
 		//check if there's a message to show
 		if(message.message_left_time_ns > 0){
 			const int text_width = vita2d_pgf_text_width(pgf, 1.0, message.message);
@@ -174,10 +187,6 @@ int run_emu(const char *path)
 		}
 		#if SHOW_FPS
 		if(frame_count % 10 == 0){
-			if(diff_nsec < 0){
-				diff_sec--;
-				diff_nsec += G;
-			}
 			sprintf(msg, "%d FPS %.1f", frame_count, 1000000000.0f/frame_time);
 		}
 		vita2d_pgf_draw_text(pgf, 0, 30, RGBA8(0,255,0,255), 1.0f, msg);
@@ -195,7 +204,7 @@ int run_emu(const char *path)
 	return 0;
 }
 
-int main()
+int main(int argc, const char *argv[])
 {
 	printf("Starting NES4Vita by SMOKE");
 
@@ -203,14 +212,24 @@ int main()
 	printf("vita2d initialized");
 	emu = new Nes_Emu();
 
-	const char *path = "ux0:data/nes4vita/rom.nes";
+	char *path = "ux0:data/nes4vita/rom.nes";
 	SceUID audiothread = 
 		sceKernelCreateThread("Audio Thread", &vita_audio_thread, 
 					0x10000100, 0x10000, 0, 0, NULL);
     sceKernelStartThread(audiothread, 0, NULL);
 	wave_buf_mutex = sceKernelCreateMutex("wave_buf_mutex", 0, 0, 0);
 	printf("Loading emulator.... %s", path);
-	run_emu(path);
+	Std_File_Reader args_file;
+	if(args_file.open("app0:args.txt") == 0){
+		char buffer[256];
+		long size = 256;
+		memset(buffer, 0, 256);
+		args_file.read_avail(buffer, &size);
+		run_emu(buffer);
+		args_file.close();
+	}
+	else
+		run_emu(path);
 
 	delete emu;
 	vita2d_fini();
@@ -228,7 +247,7 @@ static int vita_audio_thread(SceSize args, void *argp) {
 			for(int i = SAMPLE_COUNT; i < sample_count; i++){
 				wave_buf[i-SAMPLE_COUNT] = wave_buf[i];
 			}
-			sample_count = sample_count - SAMPLE_COUNT;
+			sample_count -= SAMPLE_COUNT;
 			sceKernelUnlockMutex(wave_buf_mutex, 1);
 		}
 		else
